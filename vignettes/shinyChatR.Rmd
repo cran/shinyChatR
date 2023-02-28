@@ -1,0 +1,124 @@
+---
+title: "Getting started with shinyChatR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with shinyChatR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+```{r setup}
+library(shinyChatR)
+```
+
+# Database connection for storing chat data
+
+If you are using a database connection to store the chat messages, you will need to initialize the database table before using the chat module. The following example shows an example how to do this using the `DBI` and `RSQLite` packages. Replace `db_file` with the path to your database file. The data will be saved in the table `chat_data`. 
+
+```{r}
+library(DBI)
+library(RSQLite)
+
+db_file <- "path_to_your_database_file"
+conn <- dbConnect(RSQLite::SQLite(), db_file)
+
+# initiate chat table
+df <- data.frame(rowid = numeric(),
+                 user = character(),
+                 text = character(),
+                 time = double())
+dbWriteTable(conn, "chat_data", df)
+```
+
+Now you can add the chat module to your app:
+
+```{r}
+ui <- fluidPage(
+  chat_ui("test")
+)
+
+server <- function(input, output, server) {
+  chat_server("test", db_connection = conn,
+              db_table_name = "chat_data",
+              chat_user = "user1")
+}
+
+# Run the application
+shinyApp(ui = ui, server = server)
+```
+
+## Reactive user name
+
+This example show how the user name can be stored in a reactive. Here the user specifies the name in a textInput field. 
+```{r}
+ui <- fluidPage(
+
+  fluidRow(
+    column(width = 6,
+           # Here the user specifies the user name
+           textInput("user", "Enter User Name"),
+           br(),
+           # add chat ui elements
+           chat_ui("test_reactive"),
+    )
+  )
+)
+```
+
+Then, in the server the user name is save in the reactive `user_rv`. This reactive can be passed into the argument `chat_user`.
+```{r}
+server <- function(input, output, server) {
+
+  # save user name in reactive
+  user_rv <- reactive({input$user})
+
+  # corresponding server part for id test_reactive
+  chat_server("test_reactive", db_connection = conn,
+              db_table_name = "chat_data",
+              chat_user = user_rv
+  )
+}
+```
+
+
+# RDS file for storing chat data
+
+Also the rds file first needs to be initialized.
+
+```{r}
+df <- data.frame(rowid = numeric(),
+                 user = character(),
+                 text = character(),
+                 time = double())
+
+test_rds <- "path_to_rds_file.rds"
+saveRDS(df, test_rds)
+```
+
+Now you can add the chat module to your app:
+
+```{r}
+test_rds <- "path_to_rds_file.rds"
+
+ui <- fluidPage(
+  chat_ui("test2")
+)
+
+server <- function(input, output, server) {
+  chat_server("test2", 
+              rds_path = test_rds,
+              chat_user = "user2")
+}
+
+# Run the application
+shinyApp(ui = ui, server = server)
+```
+
